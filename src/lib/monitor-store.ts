@@ -103,7 +103,7 @@ async function init(): Promise<void> {
         webhook_url VARCHAR(1000) DEFAULT '',
         webhook_url_2 VARCHAR(1000) DEFAULT '',
         custom_webhook_enabled INTEGER NOT NULL DEFAULT 0,
-        custom_webhook_body TEXT DEFAULT '',
+        custom_webhook_body TEXT,
         auto_check_interval INTEGER NOT NULL DEFAULT 60,
         allowance_usage_percent INTEGER NOT NULL DEFAULT 80,
         cpu_burst_minutes INTEGER NOT NULL DEFAULT 10
@@ -125,7 +125,7 @@ async function init(): Promise<void> {
     }
 
     try {
-      await db.query(`ALTER TABLE monitor_settings ADD COLUMN custom_webhook_body TEXT DEFAULT ''`);
+      await db.query(`ALTER TABLE monitor_settings ADD COLUMN custom_webhook_body TEXT`);
     } catch {
       // Column already exists on databases created with the previous schema.
     }
@@ -155,7 +155,10 @@ async function init(): Promise<void> {
     `);
 
     ready = true;
-  })();
+  })().catch((error) => {
+    readyPromise = null;
+    throw error;
+  });
 
   return readyPromise;
 }

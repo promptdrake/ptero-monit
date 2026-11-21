@@ -9,6 +9,7 @@ interface UserRecord {
 
 const usersPlugin: FastifyPluginAsync = async (fastify, options) => {
 //belum ditulis kodeny
+// AJA SENDIRI
 };
 
 export default usersPlugin;

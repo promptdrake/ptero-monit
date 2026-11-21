@@ -24,19 +24,18 @@ interface AdminAccount {
  * Auth & Admin Plugin (Rendered using EJS at src/views)
  */
 const authPlugin: FastifyPluginAsync = async (fastify, options) => {
+  let adminTableReady = false;
+
   // Ensure admins table exists across databases
-  try {
-    if (db.type === 'sqlite' || db.type === 'mysql') {
-      await db.query(`
-        CREATE TABLE IF NOT EXISTS admin_users (
-          id INTEGER PRIMARY KEY AUTOINCREMENT,
-          username VARCHAR(100) UNIQUE NOT NULL,
-          password_hash VARCHAR(255) NOT NULL,
-          role VARCHAR(50) NOT NULL DEFAULT 'admin',
-          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        )
-      `);
-    } else if (db.type === 'postgresql') {
+  async function ensureAdminTable(): Promise<void> {
+    if (adminTableReady) return;
+
+    if (db.type === 'mongodb') {
+      adminTableReady = true;
+      return;
+    }
+
+    if (db.type === 'postgresql') {
       await db.query(`
         CREATE TABLE IF NOT EXISTS admin_users (
           id SERIAL PRIMARY KEY,
@@ -46,27 +45,54 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
           created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
       `);
+    } else if (db.type === 'mysql') {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS admin_users (
+          id INT AUTO_INCREMENT PRIMARY KEY,
+          username VARCHAR(100) UNIQUE NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          role VARCHAR(50) NOT NULL DEFAULT 'admin',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
+    } else {
+      await db.query(`
+        CREATE TABLE IF NOT EXISTS admin_users (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          username VARCHAR(100) UNIQUE NOT NULL,
+          password_hash VARCHAR(255) NOT NULL,
+          role VARCHAR(50) NOT NULL DEFAULT 'admin',
+          created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+      `);
     }
+
+    adminTableReady = true;
+  }
+
+  try {
+    await ensureAdminTable();
   } catch (err: any) {
     fastify.log.warn?.(`Admin table init note (${db.type}): ${err.message}`);
   }
 
   // Count existing admin accounts
   async function getAdminCount(): Promise<number> {
-    try {
-      if (db.type === 'mongodb') {
-        return await db.collection('admin_users').countDocuments();
-      }
-      const res = await db.query('SELECT COUNT(*) as cnt FROM admin_users');
-      const count = res.rows[0]?.cnt ?? res.rows[0]?.count ?? 0;
-      return Number(count);
-    } catch {
-      return 0;
+    await ensureAdminTable();
+
+    if (db.type === 'mongodb') {
+      return await db.collection('admin_users').countDocuments();
     }
+
+    const res = await db.query('SELECT COUNT(*) as cnt FROM admin_users');
+    const count = res.rows[0]?.cnt ?? res.rows[0]?.count ?? 0;
+    return Number(count);
   }
 
   // Find admin by username
   async function findAdmin(username: string): Promise<AdminAccount | null> {
+    await ensureAdminTable();
+
     if (db.type === 'mongodb') {
       const doc = await db.collection('admin_users').findOne({ username });
       if (!doc) return null;

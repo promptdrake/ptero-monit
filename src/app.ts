@@ -79,6 +79,17 @@ async function loadPlugins(app: FastifyInstance): Promise<void> {
   }
 }
 
+function resolveResourceDir(name: 'views' | 'assets'): string {
+  const runtimeDir = path.join(__dirname, name);
+  if (fs.existsSync(runtimeDir)) return runtimeDir;
+
+  const sourceDir = path.resolve(__dirname, '..', 'src', name);
+  if (fs.existsSync(sourceDir)) return sourceDir;
+
+  fs.mkdirSync(runtimeDir, { recursive: true });
+  return runtimeDir;
+}
+
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
     logger: false
@@ -90,7 +101,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     secret: process.env.COOKIE_SECRET || 'ptero-secret-key-321'
   });
 
-  const viewsDir = path.join(__dirname, 'views');
+  const viewsDir = resolveResourceDir('views');
   await app.register(fastifyView, {
     engine: {
       ejs
@@ -98,10 +109,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     root: viewsDir
   });
 
-  const assetsDir = path.join(__dirname, 'assets');
-  if (!fs.existsSync(assetsDir)) {
-    fs.mkdirSync(assetsDir, { recursive: true });
-  }
+  const assetsDir = resolveResourceDir('assets');
   await app.register(fastifyStatic, {
     root: assetsDir,
     prefix: '/assets/'
