@@ -1,3 +1,14 @@
+/*
+
+╭━━╮╱╱╱╱╱╱╱╱╱╭━━━╮╱╱╱╱╱╱╱╱╱╱╱╭╮
+╰┫┣╯╱╱╱╱╱╱╱╱╱┃╭━╮┃╱╱╱╱╭╮╱╱╱╱╭╯╰╮
+╱┃┃╭━━┳━━┳━╮╱┃╰━╯┣━┳━━╋╋━━┳━┻╮╭╯
+╱┃┃┃╭╮┃╭╮┃╭╮╮┃╭━━┫╭┫╭╮┣┫┃━┫╭━┫┃
+╭┫┣┫╰╯┃╭╮┃┃┃┃┃┃╱╱┃┃┃╰╯┃┃┃━┫╰━┫╰╮
+╰━━┫╭━┻╯╰┻╯╰╯╰╯╱╱╰╯╰━━┫┣━━┻━━┻━╯
+╱╱╱┃┃╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╭╯┃
+╱╱╱╰╯╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╱╰━╯
+*/
 import { FastifyPluginAsync, FastifyRequest } from 'fastify';
 import bcrypt from 'bcryptjs';
 import { db } from '../lib/sql.js';
@@ -20,13 +31,8 @@ interface AdminAccount {
   created_at?: string;
 }
 
-/**
- * Auth & Admin Plugin (Rendered using EJS at src/views)
- */
 const authPlugin: FastifyPluginAsync = async (fastify, options) => {
   let adminTableReady = false;
-
-  // Ensure admins table exists across databases
   async function ensureAdminTable(): Promise<void> {
     if (adminTableReady) return;
 
@@ -76,7 +82,7 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     fastify.log.warn?.(`Admin table init note (${db.type}): ${err.message}`);
   }
 
-  // Count existing admin accounts
+
   async function getAdminCount(): Promise<number> {
     await ensureAdminTable();
 
@@ -89,7 +95,6 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     return Number(count);
   }
 
-  // Find admin by username
   async function findAdmin(username: string): Promise<AdminAccount | null> {
     await ensureAdminTable();
 
@@ -110,16 +115,15 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     return res.rows[0] || null;
   }
 
-  // Resolve the admin account for the current session cookie
+
   async function getSessionAdmin(request: FastifyRequest): Promise<AdminAccount | null> {
     const username = request.cookies.admin_session;
     if (!username) return null;
     return findAdmin(username);
   }
 
-  // --- 1. GET / (First Visit) ---
+
   fastify.get('/', async (request, reply) => {
-    // If already logged in, redirect directly to admin dashboard
     const session = request.cookies.admin_session;
     if (session) {
       const admin = await findAdmin(session);
@@ -128,14 +132,12 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
       }
     }
 
-    // Check if admin exists
+
     const adminCount = await getAdminCount();
     if (adminCount === 0) {
-      // Pointed to create initial admin account
       return reply.redirect('/setup-admin');
     }
 
-    // Render login page using EJS
     return reply.view('login.ejs', {
       env: fastify.env.env,
       dbType: fastify.env.dbType,
@@ -143,7 +145,7 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     });
   });
 
-  // --- 2. GET /setup-admin ---
+
   fastify.get('/setup-admin', async (request, reply) => {
     const adminCount = await getAdminCount();
     if (adminCount > 0) {
@@ -157,7 +159,7 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     });
   });
 
-  // --- 3. POST /setup-admin ---
+
   fastify.post<{ Body: { username?: string; password?: string; confirm_password?: string } }>(
     '/setup-admin',
     async (request, reply) => {
@@ -211,7 +213,7 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     }
   );
 
-  // --- 4. POST /login ---
+
   fastify.post<{ Body: { username?: string; password?: string } }>('/login', async (request, reply) => {
     const { username, password } = request.body || {};
 
@@ -251,7 +253,7 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     return reply.redirect('/admin');
   });
 
-  // --- 5. GET /admin ---
+
   fastify.get('/admin', async (request, reply) => {
     const admin = await getSessionAdmin(request);
     if (!admin) {
@@ -269,7 +271,6 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     });
   });
 
-  // --- 6. GET /settings ---
   fastify.get<{ Querystring: { saved?: string } }>('/settings', async (request, reply) => {
     const admin = await getSessionAdmin(request);
     if (!admin) {
@@ -299,7 +300,7 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     });
   });
 
-  // --- 7. POST /settings ---
+
   fastify.post<{
     Body: {
       panel_url?: string;
@@ -393,7 +394,7 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     return reply.redirect('/settings?saved=1');
   });
 
-  // --- 8. POST /settings/test-webhook ---
+
   fastify.post<{
     Body: {
       target?: string;
@@ -449,7 +450,7 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     return reply.send({ ok: false, message: 'Unknown webhook target.' });
   });
 
-  // --- 9. GET /logout ---
+  
   fastify.get('/logout', async (request, reply) => {
     reply.clearCookie('admin_session', { path: '/' });
     return reply.redirect('/');
