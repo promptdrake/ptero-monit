@@ -1,0 +1,93 @@
+<%- include('partials/head', { title: 'Docker - Pterodactyl Server Monitor', bodyClass: 'bg-body' }) %>
+<div class="d-flex flex-column lg:flex-row app-shell">
+  <%- include('partials/sidebar', { active: 'docker', admin }) %>
+
+  <main class="flex-grow-1 p-3 lg:p-4 bg-2">
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+      <div>
+        <h1 class="h3 mb-1">Docker</h1>
+        <p class="text-sm fg-3 mb-0">Servers reported by each Wings node, with live status and usage.</p>
+      </div>
+      <div class="d-flex flex-wrap align-items-center gap-2">
+        <span class="badge theme-secondary rounded-pill"><%= totals.nodes %> node(s)</span>
+        <span class="badge theme-secondary rounded-pill"><%= totals.servers %> server(s)</span>
+        <span class="badge theme-success rounded-pill"><%= totals.running %> running</span>
+        <a href="/docker" class="btn btn-outline theme-secondary btn-sm">Refresh</a>
+      </div>
+    </div>
+
+    <% if (nodes.length === 0) { %>
+      <div class="card shadow-sm mt-3">
+        <div class="card-body">
+          <div>
+            <h2 class="h5 mb-1">No nodes configured</h2>
+            <p class="text-sm fg-3 mb-0">Add a Wings node first, then its servers will appear here.</p>
+          </div>
+          <div>
+            <a href="/servers" class="btn btn-solid theme-primary btn-sm">Go to List Server</a>
+          </div>
+        </div>
+      </div>
+    <% } else { %>
+      <div class="d-grid gap-3 mt-3">
+        <% nodes.forEach(function (node) { %>
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+                <div>
+                  <div class="d-flex flex-wrap align-items-center gap-2">
+                    <h2 class="h5 mb-0"><%= node.name %></h2>
+                    <span class="badge theme-secondary">Node <%= node.nodeId %></span>
+                  </div>
+                  <p class="text-sm fg-3 mb-0 mt-1"><%= node.wingsUrl %></p>
+                </div>
+                <% if (node.ok) { %>
+                  <span class="badge theme-success rounded-pill"><%= node.servers.length %> server(s)</span>
+                <% } else { %>
+                  <span class="badge theme-danger rounded-pill">Unreachable</span>
+                <% } %>
+              </div>
+
+              <% if (!node.ok) { %>
+                <div class="alert theme-danger text-sm" role="alert">Unable to fetch servers: <%= node.message %></div>
+              <% } else if (node.servers.length === 0) { %>
+                <p class="text-sm fg-3 mb-0">No servers are registered on this node.</p>
+              <% } else { %>
+                <div class="table-responsive">
+                  <table class="table table-hover align-middle mb-0 text-sm">
+                    <thead>
+                      <tr class="fg-2">
+                        <th scope="col" class="fw-semibold">Server Name</th>
+                        <th scope="col" class="fw-semibold">Server ID</th>
+                        <th scope="col" class="fw-semibold">Status</th>
+                        <th scope="col" class="fw-semibold">CPU</th>
+                        <th scope="col" class="fw-semibold">Memory</th>
+                        <th scope="col" class="fw-semibold">Disk</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <% node.servers.forEach(function (server) { %>
+                        <tr>
+                          <td><%= server.name %></td>
+                          <td><code><%= server.uuid %></code></td>
+                          <td><span class="badge <%= server.stateTheme %>"><%= server.state %></span></td>
+                          <td><%= server.cpuLabel %></td>
+                          <td>
+                            <div><%= server.memoryLabel %></div>
+                            <div class="text-sm fg-3"><%= server.memoryPercent %>%</div>
+                          </td>
+                          <td><%= server.diskLabel %></td>
+                        </tr>
+                      <% }); %>
+                    </tbody>
+                  </table>
+                </div>
+              <% } %>
+            </div>
+          </div>
+        <% }); %>
+      </div>
+    <% } %>
+  </main>
+</div>
+<%- include('partials/foot') %>

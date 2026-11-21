@@ -1,0 +1,46 @@
+<%- include('partials/head', { title: 'Sign In - Pterodactyl Server Monitor', bodyClass: 'auth-bg d-flex align-items-center justify-content-center p-3' }) %>
+<div class="card auth-card w-100 shadow-sm" style="max-width: 860px;">
+  <div class="row g-0">
+    <div class="col-12 lg:col-5 d-none lg:flex flex-column justify-content-between p-4 auth-brand-panel">
+      <div>
+        <img src="/assets/logo.png" alt="Logo" class="brand-logo mb-3">
+        <h1 class="h4 mb-2">Pterodactyl Monitor</h1>
+        <p class="text-sm fg-2 mb-0">Track CPU, RAM, and server statistics for your Pterodactyl nodes from one dashboard.</p>
+      </div>
+      <p class="text-sm fg-3 mb-0">Pterodactyl Server Monitor</p>
+    </div>
+
+    <div class="col-12 lg:col-7">
+      <div class="card-body p-4 lg:p-5">
+        <div class="d-flex lg:d-none align-items-center gap-2">
+          <img src="/assets/logo.png" alt="Logo" class="brand-logo">
+          <span class="fw-bold">Pterodactyl Monitor</span>
+        </div>
+
+        <div>
+          <h2 class="h4 mb-1">Sign In</h2>
+          <p class="text-sm fg-3 mb-0">Enter your administrator username and password.</p>
+        </div>
+
+        <% if (typeof error !== 'undefined' && error) { %>
+          <div class="alert theme-danger text-sm" role="alert"><%= error %></div>
+        <% } %>
+
+        <form action="/login" method="POST" class="d-grid gap-3">
+          <div class="form-field">
+            <label for="username" class="form-label">Username</label>
+            <input type="text" id="username" name="username" class="form-control" placeholder="Enter your username" autocomplete="username" required autofocus>
+          </div>
+
+          <div class="form-field">
+            <label for="password" class="form-label">Password</label>
+            <input type="password" id="password" name="password" class="form-control" placeholder="Enter your password" autocomplete="current-password" required>
+          </div>
+
+          <button type="submit" class="btn btn-solid theme-primary btn-sm w-100">Sign In</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+<%- include('partials/foot') %>

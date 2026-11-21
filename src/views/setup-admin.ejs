@@ -1,0 +1,40 @@
+<%- include('partials/head', { title: 'Admin Setup - Pterodactyl Server Monitor', bodyClass: 'auth-bg d-flex align-items-center justify-content-center p-3' }) %>
+<div class="card auth-card w-100 shadow-sm">
+  <div class="card-body p-4">
+    <div class="d-flex align-items-center gap-2">
+      <img src="/assets/logo.png" alt="Logo" class="brand-logo">
+      <div>
+        <h1 class="h5 fw-bold mb-0">Pterodactyl Monitor</h1>
+        <p class="text-sm fg-3 mb-0">Create the first administrator account</p>
+      </div>
+    </div>
+
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert theme-danger text-sm" role="alert"><%= error %></div>
+    <% } %>
+
+    <div class="alert theme-info text-sm" role="alert">
+      No administrator account was found in the database. Create the first administrator account to manage server monitoring.
+    </div>
+
+    <form action="/setup-admin" method="POST" class="d-grid gap-3">
+      <div class="form-field">
+        <label for="username" class="form-label">Admin Username</label>
+        <input type="text" id="username" name="username" class="form-control" placeholder="e.g. admin" autocomplete="username" required autofocus>
+      </div>
+
+      <div class="form-field">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" id="password" name="password" class="form-control" placeholder="At least 6 characters" autocomplete="new-password" minlength="6" required>
+      </div>
+
+      <div class="form-field">
+        <label for="confirm_password" class="form-label">Confirm Password</label>
+        <input type="password" id="confirm_password" name="confirm_password" class="form-control" placeholder="Repeat the password" autocomplete="new-password" required>
+      </div>
+
+      <button type="submit" class="btn btn-solid theme-primary btn-sm w-100">Create Admin &amp; Sign In</button>
+    </form>
+  </div>
+</div>
+<%- include('partials/foot') %>

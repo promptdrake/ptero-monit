@@ -1,0 +1,43 @@
+{
+  "name": "pterooverloadchecker",
+  "version": "1.0.0",
+  "description": "Fastify TypeScript Backend with MySQL2 and auto-plugin architecture",
+  "main": "dist/server.js",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc",
+    "start": "node dist/server.js",
+    "test": "npx tsx -e \"import('./src/app.ts').then(async m => { const app = await m.buildApp(); const res = await app.inject({ method: 'GET', url: '/health' }); console.log('HEALTH TEST:', res.statusCode, res.json()); })\""
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@fastify/cookie": "^11.1.5",
+    "@fastify/formbody": "^9.0.2",
+    "@fastify/static": "^10.1.12",
+    "@fastify/view": "^12.0.1",
+    "axios": "^1.21.1",
+    "bcryptjs": "^3.0.3",
+    "better-sqlite3": "^13.2.0",
+    "chalk": "^6.0.1",
+    "dotenv": "^18.0.10",
+    "ejs": "^7.0.2",
+    "fastify": "^5.12.8",
+    "fastify-plugin": "^6.0.1",
+    "mongodb": "^7.9.1",
+    "mysql2": "^3.24.6",
+    "pg": "^8.23.1",
+    "sharp": "^0.35.5"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/ejs": "^3.1.5",
+    "@types/node": "^22.13.10",
+    "@types/pg": "^8.23.1",
+    "tsx": "^4.19.3",
+    "typescript": "^5.8.2"
+  }
+}

@@ -1,0 +1,23 @@
+<aside class="app-sidebar p-3 d-flex flex-column gap-3">
+  <div class="d-flex align-items-center gap-2">
+    <img src="/assets/logo.png" alt="Logo" class="brand-logo">
+    <div>
+      <div class="fw-bold">Pterodactyl</div>
+      <div class="text-sm fg-3">Server Monitor</div>
+    </div>
+  </div>
+
+  <nav class="d-flex flex-row flex-wrap lg:flex-column gap-1 flex-grow-1">
+    <a href="/admin" class="app-nav-link <%= active === 'dashboard' ? 'active' : '' %>">Dashboard</a>
+    <a href="/servers" class="app-nav-link <%= active === 'servers' ? 'active' : '' %>">List Server</a>
+    <a href="/docker" class="app-nav-link <%= active === 'docker' ? 'active' : '' %>">Docker</a>
+    <a href="/logs" class="app-nav-link <%= active === 'logs' ? 'active' : '' %>">Log</a>
+    <a href="/settings" class="app-nav-link <%= active === 'settings' ? 'active' : '' %>">Settings</a>
+  </nav>
+
+  <div class="d-flex align-items-center gap-2 border-top pt-3">
+    <span class="badge theme-primary rounded-pill"><%= admin.role.toUpperCase() %></span>
+    <span class="text-sm fg-2 text-truncate"><%= admin.username %></span>
+    <a href="/logout" class="btn btn-outline theme-danger btn-sm ms-auto">Logout</a>
+  </div>
+</aside>

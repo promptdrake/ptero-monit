@@ -1,0 +1,76 @@
+<%- include('partials/head', { title: 'Log - Pterodactyl Server Monitor', bodyClass: 'bg-body' }) %>
+<div class="d-flex flex-column lg:flex-row app-shell">
+  <%- include('partials/sidebar', { active: 'logs', admin }) %>
+
+  <main class="flex-grow-1 p-3 lg:p-4 bg-2">
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+      <div>
+        <h1 class="h3 mb-1">Log</h1>
+        <p class="text-sm fg-3 mb-0">Events recorded by the automatic server checker.</p>
+      </div>
+      <span class="badge theme-secondary rounded-pill"><%= logs.length %> event(s)</span>
+    </div>
+
+    <div class="row g-3 mt-3">
+      <div class="col-12">
+        <div class="card shadow-sm">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+              <div>
+                <h2 class="h5 mb-1">Event Logs</h2>
+                <p class="text-sm fg-3 mb-0">Newest events first.</p>
+              </div>
+              <form action="/logs/delete-all" method="POST" onsubmit="return confirm('Delete all logs?');">
+                <button type="submit" class="btn btn-outline theme-danger btn-sm">Delete All</button>
+              </form>
+            </div>
+
+            <% if (logs.length === 0) { %>
+              <p class="text-sm fg-3 mb-0">No events have been recorded yet.</p>
+            <% } else { %>
+              <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 text-sm">
+                  <thead>
+                    <tr class="fg-2">
+                      <th scope="col" class="fw-semibold">Time</th>
+                      <th scope="col" class="fw-semibold">Server ID</th>
+                      <th scope="col" class="fw-semibold">Server Name</th>
+                      <th scope="col" class="fw-semibold">Node ID</th>
+                      <th scope="col" class="fw-semibold">Event</th>
+                      <th scope="col" class="fw-semibold">Detail</th>
+                      <th scope="col" class="fw-semibold text-end">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <% logs.forEach(function (log) { %>
+                      <%
+                        var eventTheme = 'theme-secondary';
+                        if (log.event === 'cpu.overusage') eventTheme = 'theme-danger';
+                        if (log.event === 'memory.overusage') eventTheme = 'theme-warning';
+                        if (log.event === 'node.connection.restored') eventTheme = 'theme-success';
+                      %>
+                      <tr>
+                        <td class="fg-3 text-nowrap"><%= log.createdAt %></td>
+                        <td><code><%= log.serverId %></code></td>
+                        <td><%= log.serverName %></td>
+                        <td><%= log.nodeId %></td>
+                        <td><span class="badge <%= eventTheme %>"><%= log.event %></span></td>
+                        <td><%= log.detail %></td>
+                        <td class="text-end">
+                          <form action="/logs/<%= log.id %>/delete" method="POST" onsubmit="return confirm('Delete this log?');">
+                            <button type="submit" class="btn btn-outline theme-danger btn-sm">Delete</button>
+                          </form>
+                        </td>
+                      </tr>
+                    <% }); %>
+                  </tbody>
+                </table>
+              </div>
+            <% } %>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<%- include('partials/foot') %>

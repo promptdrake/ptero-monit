@@ -1,0 +1,112 @@
+<%- include('partials/head', { title: 'Settings - Pterodactyl Server Monitor', bodyClass: 'bg-body' }) %>
+<div class="d-flex flex-column lg:flex-row app-shell">
+  <%- include('partials/sidebar', { active: 'settings', admin }) %>
+
+  <main class="flex-grow-1 p-3 lg:p-4 bg-2">
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+      <div>
+        <h1 class="h3 mb-1">Settings</h1>
+        <p class="text-sm fg-3 mb-0">Configure panel access, monitoring limits, and webhook notifications.</p>
+      </div>
+    </div>
+
+    <% if (saved) { %>
+      <div class="alert theme-success text-sm mt-3" role="alert">Settings saved successfully.</div>
+    <% } %>
+
+    <% if (typeof error !== 'undefined' && error) { %>
+      <div class="alert theme-danger text-sm mt-3" role="alert"><%= error %></div>
+    <% } %>
+
+    <div class="row g-3 mt-3">
+      <div class="col-12 xl:col-8">
+        <form action="/settings" method="POST" class="d-grid gap-3">
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div>
+                <h2 class="h5 mb-1">Panel</h2>
+                <p class="text-sm fg-3 mb-0">Pterodactyl panel connection details.</p>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="panel_url">Panel URL</label>
+                <input type="text" class="form-control" id="panel_url" name="panel_url" placeholder="https://panel.example.com" value="<%= panelUrl %>">
+                <small class="form-text">Base URL of your Pterodactyl panel.</small>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="ptlc_api_key">PTLC API Key</label>
+                <input type="password" class="form-control" id="ptlc_api_key" name="ptlc_api_key" placeholder="ptlc_..." value="<%= ptlcApiKey %>" autocomplete="off">
+                <small class="form-text">Client API key used for client endpoints.</small>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="ptla_api_key">PTLA API Key</label>
+                <input type="password" class="form-control" id="ptla_api_key" name="ptla_api_key" placeholder="ptla_..." value="<%= ptlaApiKey %>" autocomplete="off">
+                <small class="form-text">Application API key used for node and server data.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div>
+                <h2 class="h5 mb-1">Monitoring</h2>
+                <p class="text-sm fg-3 mb-0">Interval and thresholds used by the automatic checker.</p>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="auto_check_interval">Auto Check Interval</label>
+                <input type="number" class="form-control" id="auto_check_interval" name="auto_check_interval" min="1" step="1" placeholder="60" value="<%= autoCheckInterval %>" required>
+                <small class="form-text">Required, in seconds. Applies to every server in the list.</small>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="allowance_usage">Allowance Usage (in percent)</label>
+                <input type="number" class="form-control" id="allowance_usage" name="allowance_usage" min="1" max="100" step="1" placeholder="80" value="<%= allowanceUsagePercent %>" required>
+                <small class="form-text">Resource usage threshold. Default 80%.</small>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="cpu_burst_minutes">CPU Burst Time Allowance</label>
+                <input type="number" class="form-control" id="cpu_burst_minutes" name="cpu_burst_minutes" min="1" step="1" placeholder="10" value="<%= cpuBurstMinutes %>" required>
+                <small class="form-text">Required, in minutes. CPU usage must stay above the allowance for this long before it is logged.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div>
+                <h2 class="h5 mb-1">Webhook</h2>
+                <p class="text-sm fg-3 mb-0">Send event notifications to an external webhook.</p>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="webhook_enabled">Enable Webhook</label>
+                <div class="d-flex align-items-center justify-content-between gap-3 form-field-card">
+                  <span class="text-sm fg-2">Send a notification for every logged event.</span>
+                  <div class="switch theme-primary">
+                    <input type="checkbox" role="switch" switch id="webhook_enabled" name="webhook_enabled" <%= webhookEnabled ? 'checked' : '' %>>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="webhook_url">Send Webhook To</label>
+                <input type="url" class="form-control" id="webhook_url" name="webhook_url" placeholder="https://discord.com/api/webhooks/..." value="<%= webhookUrl %>">
+                <small class="form-text">Destination URL for webhook events.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="d-flex flex-wrap gap-2">
+            <button type="submit" class="btn btn-solid theme-primary btn-sm">Save Settings</button>
+            <button type="button" class="btn btn-outline theme-secondary btn-sm" id="test-webhook">Test Webhook</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </main>
+</div>
+<%- include('partials/foot') %>

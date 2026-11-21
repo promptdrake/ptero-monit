@@ -1,0 +1,185 @@
+<%- include('partials/head', { title: 'Dashboard - Pterodactyl Server Monitor', bodyClass: 'bg-body' }) %>
+<div class="d-flex flex-column lg:flex-row app-shell">
+  <%- include('partials/sidebar', { active: 'dashboard', admin }) %>
+
+  <main class="flex-grow-1 p-3 lg:p-4 bg-2">
+    <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
+      <div>
+        <h1 class="h3 mb-1">Dashboard</h1>
+        <p class="text-sm fg-3 mb-0">Pterodactyl server monitoring status &amp; system information</p>
+      </div>
+      <span class="badge theme-success rounded-pill">Live monitoring</span>
+    </div>
+
+    <div class="row g-3 mt-3">
+      <div class="col-12 sm:col-6 xl:col-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-1">
+              <span class="text-sm fg-2 fw-semibold">CPU Usage</span>
+              <span class="badge theme-secondary"><%= stats.cpu.cores %> Core</span>
+            </div>
+            <div class="stat-value"><%= stats.cpu.usage %>%</div>
+            <div class="progress stat-progress">
+              <div class="progress-bar theme-primary" style="width: <%= stats.cpu.usage %>%"></div>
+            </div>
+            <div class="text-sm fg-3"><%= stats.cpu.model %></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 sm:col-6 xl:col-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-1">
+              <span class="text-sm fg-2 fw-semibold">RAM Usage</span>
+              <span class="badge theme-secondary"><%= stats.memory.usedLabel %> / <%= stats.memory.totalLabel %></span>
+            </div>
+            <div class="stat-value"><%= stats.memory.usage %>%</div>
+            <div class="progress stat-progress">
+              <div class="progress-bar theme-primary" style="width: <%= stats.memory.usage %>%"></div>
+            </div>
+            <div class="text-sm fg-3">Available <%= stats.memory.freeLabel %></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 sm:col-6 xl:col-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-1">
+              <span class="text-sm fg-2 fw-semibold">Project Usage</span>
+              <span class="badge theme-secondary">Node.js</span>
+            </div>
+            <div class="stat-value"><%= stats.project.rssLabel %></div>
+            <div class="progress stat-progress">
+              <div class="progress-bar theme-primary" style="width: <%= stats.project.heapUsage %>%"></div>
+            </div>
+            <div class="text-sm fg-3">Heap <%= stats.project.heapLabel %></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 sm:col-6 xl:col-3">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-1">
+              <span class="text-sm fg-2 fw-semibold">Operating System</span>
+              <span class="badge theme-secondary"><%= stats.system.arch %></span>
+            </div>
+            <div class="stat-value-sm"><%= stats.system.osLabel %></div>
+            <div class="text-sm fg-3">Host: <%= stats.system.hostname %></div>
+            <div class="text-sm fg-3">Uptime: <%= stats.system.uptimeLabel %></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="row g-3 mt-3">
+      <div class="col-12 lg:col-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <h2 class="h5 mb-0">System Statistics</h2>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0 text-sm">
+                <tbody>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold" style="width: 190px;">Operating System</th>
+                    <td><%= stats.system.osLabel %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Hostname</th>
+                    <td><%= stats.system.hostname %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Architecture</th>
+                    <td><%= stats.system.arch %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Kernel</th>
+                    <td><%= stats.system.release %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">System Uptime</th>
+                    <td><%= stats.system.uptimeLabel %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">CPU Model</th>
+                    <td><%= stats.cpu.model %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">CPU Speed</th>
+                    <td><%= stats.cpu.speedGhz %> GHz &middot; <%= stats.cpu.cores %> core</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Load Average</th>
+                    <td><%= stats.cpu.load.join(' / ') %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Total RAM</th>
+                    <td><%= stats.memory.totalLabel %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Used RAM</th>
+                    <td><%= stats.memory.usedLabel %> (<%= stats.memory.usage %>%)</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Available RAM</th>
+                    <td><%= stats.memory.freeLabel %></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-12 lg:col-6">
+        <div class="card shadow-sm h-100">
+          <div class="card-body">
+            <h2 class="h5 mb-0">Application Statistics</h2>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0 text-sm">
+                <tbody>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold" style="width: 190px;">Process Memory</th>
+                    <td><%= stats.project.rssLabel %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Node.js Heap</th>
+                    <td><%= stats.project.heapLabel %> (<%= stats.project.heapUsage %>%)</td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Application Uptime</th>
+                    <td><%= stats.project.uptimeLabel %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Node.js</th>
+                    <td><%= stats.node %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Database</th>
+                    <td><%= dbType.toUpperCase() %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Environment</th>
+                    <td><%= env.toUpperCase() %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Server Port</th>
+                    <td><%= port %></td>
+                  </tr>
+                  <tr>
+                    <th scope="row" class="fg-2 fw-semibold">Last Updated</th>
+                    <td><%= stats.generatedAt %></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<%- include('partials/foot') %>
