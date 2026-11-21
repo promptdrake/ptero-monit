@@ -3,6 +3,14 @@ import bcrypt from 'bcryptjs';
 import { db } from '../lib/sql.js';
 import { getSystemStats } from '../lib/system-stats.js';
 import { getAppSettings, saveAppSettings } from '../lib/settings.js';
+import { getWebhookDeliveryStatus, setWebhookDeliveryStatus } from '../lib/webhook-status.js';
+import {
+  buildDiscordPayload,
+  deliverWebhook,
+  renderCustomBody,
+  sampleWebhookVars,
+  validateCustomBodyTemplate
+} from '../lib/webhook.js';
 
 interface AdminAccount {
   id: number | string;
@@ -250,11 +258,16 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
       panelUrl: settings.panelUrl,
       ptlcApiKey: settings.ptlcApiKey,
       ptlaApiKey: settings.ptlaApiKey,
-      webhookEnabled: settings.webhookEnabled,
-      webhookUrl: settings.webhookUrl,
+      discordEnabled: settings.discordEnabled,
+      discordWebhookUrl: settings.discordWebhookUrl,
+      customEnabled: settings.customEnabled,
+      customWebhookUrl: settings.customWebhookUrl,
+      customWebhookBody: settings.customWebhookBody,
       autoCheckInterval: settings.autoCheckInterval,
       allowanceUsagePercent: settings.allowanceUsagePercent,
       cpuBurstMinutes: settings.cpuBurstMinutes,
+      discordStatus: getWebhookDeliveryStatus('discord'),
+      customStatus: getWebhookDeliveryStatus('custom'),
       error: null,
       saved: request.query.saved === '1'
     });
@@ -266,8 +279,11 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
       panel_url?: string;
       ptlc_api_key?: string;
       ptla_api_key?: string;
-      webhook_enabled?: string;
-      webhook_url?: string;
+      discord_enabled?: string;
+      discord_webhook_url?: string;
+      custom_enabled?: string;
+      custom_webhook_url?: string;
+      custom_webhook_body?: string;
       auto_check_interval?: string;
       allowance_usage?: string;
       cpu_burst_minutes?: string;
@@ -283,9 +299,13 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     const panelUrl = String(body.panel_url || '').trim();
     const ptlcApiKey = String(body.ptlc_api_key || '').trim();
     const ptlaApiKey = String(body.ptla_api_key || '').trim();
-    const webhookEnabled =
-      body.webhook_enabled === 'on' || body.webhook_enabled === 'true' || body.webhook_enabled === '1';
-    const webhookUrl = String(body.webhook_url || '').trim();
+    const discordEnabled =
+      body.discord_enabled === 'on' || body.discord_enabled === 'true' || body.discord_enabled === '1';
+    const discordWebhookUrl = String(body.discord_webhook_url || '').trim();
+    const customEnabled =
+      body.custom_enabled === 'on' || body.custom_enabled === 'true' || body.custom_enabled === '1';
+    const customWebhookUrl = String(body.custom_webhook_url || '').trim();
+    const customWebhookBody = String(body.custom_webhook_body || '').trim();
     const intervalRaw = String(body.auto_check_interval || '').trim();
     const allowanceRaw = String(body.allowance_usage || '').trim();
     const burstRaw = String(body.cpu_burst_minutes || '').trim();
@@ -301,6 +321,12 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
       error = 'Allowance Usage must be between 1 and 100 percent.';
     } else if (!burstRaw || !Number.isFinite(burst) || burst < 1) {
       error = 'CPU Burst Time Allowance is required and must be at least 1 minute.';
+    } else if (discordEnabled && !discordWebhookUrl) {
+      error = 'Discord webhook link is required when the Discord webhook is enabled.';
+    } else if (customEnabled && !customWebhookUrl) {
+      error = 'Custom webhook URL is required when the custom webhook is enabled.';
+    } else if (customEnabled) {
+      error = validateCustomBodyTemplate(customWebhookBody);
     }
 
     if (error) {
@@ -309,11 +335,16 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
         panelUrl,
         ptlcApiKey,
         ptlaApiKey,
-        webhookEnabled,
-        webhookUrl,
+        discordEnabled,
+        discordWebhookUrl,
+        customEnabled,
+        customWebhookUrl,
+        customWebhookBody,
         autoCheckInterval: intervalRaw,
         allowanceUsagePercent: allowanceRaw,
         cpuBurstMinutes: burstRaw,
+        discordStatus: getWebhookDeliveryStatus('discord'),
+        customStatus: getWebhookDeliveryStatus('custom'),
         error,
         saved: false
       });
@@ -323,8 +354,11 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
       panelUrl,
       ptlcApiKey,
       ptlaApiKey,
-      webhookEnabled,
-      webhookUrl,
+      discordEnabled,
+      discordWebhookUrl,
+      customEnabled,
+      customWebhookUrl,
+      customWebhookBody,
       autoCheckInterval: interval,
       allowanceUsagePercent: allowance,
       cpuBurstMinutes: burst
@@ -333,7 +367,63 @@ const authPlugin: FastifyPluginAsync = async (fastify, options) => {
     return reply.redirect('/settings?saved=1');
   });
 
-  // --- 8. GET /logout ---
+  // --- 8. POST /settings/test-webhook ---
+  fastify.post<{
+    Body: {
+      target?: string;
+      discord_webhook_url?: string;
+      custom_webhook_url?: string;
+      custom_webhook_body?: string;
+    };
+  }>('/settings/test-webhook', async (request, reply) => {
+    const admin = await getSessionAdmin(request);
+    if (!admin) {
+      return reply.code(401).send({ ok: false, message: 'Not authenticated.' });
+    }
+
+    const body = request.body || {};
+    const vars = sampleWebhookVars();
+
+    if (body.target === 'discord') {
+      const url = String(body.discord_webhook_url || '').trim();
+      if (!url) {
+        return reply.send({ ok: false, message: 'Discord webhook link is required.' });
+      }
+
+      const result = await deliverWebhook(url, buildDiscordPayload(vars), 'discord');
+      setWebhookDeliveryStatus('discord', {
+        ok: result.ok,
+        event: 'test.notification',
+        message: result.message
+      });
+      return reply.send(result);
+    }
+
+    if (body.target === 'custom') {
+      const url = String(body.custom_webhook_url || '').trim();
+      if (!url) {
+        return reply.send({ ok: false, message: 'Custom webhook URL is required.' });
+      }
+
+      const template = String(body.custom_webhook_body || '').trim();
+      const validation = validateCustomBodyTemplate(template);
+      if (validation) {
+        return reply.send({ ok: false, message: validation });
+      }
+
+      const result = await deliverWebhook(url, renderCustomBody(template, vars), 'custom');
+      setWebhookDeliveryStatus('custom', {
+        ok: result.ok,
+        event: 'test.notification',
+        message: result.message
+      });
+      return reply.send(result);
+    }
+
+    return reply.send({ ok: false, message: 'Unknown webhook target.' });
+  });
+
+  // --- 9. GET /logout ---
   fastify.get('/logout', async (request, reply) => {
     reply.clearCookie('admin_session', { path: '/' });
     return reply.redirect('/');

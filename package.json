@@ -4,10 +4,14 @@
   "description": "Fastify TypeScript Backend with MySQL2 and auto-plugin architecture",
   "main": "dist/server.js",
   "type": "module",
+  "bin": {
+    "prm": "dist/cli.js"
+  },
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
+    "prm": "tsx src/cli.ts",
     "test": "npx tsx -e \"import('./src/app.ts').then(async m => { const app = await m.buildApp(); const res = await app.inject({ method: 'GET', url: '/health' }); console.log('HEALTH TEST:', res.statusCode, res.json()); })\""
   },
   "keywords": [],

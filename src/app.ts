@@ -60,9 +60,7 @@ const envPlugin = fp(async (app: FastifyInstance) => {
   app.decorateRequest('env', { getter: () => config });
 });
 
-/**
- * Automatically loads all plugins from src/plugins directory
- */
+
 async function loadPlugins(app: FastifyInstance): Promise<void> {
   const pluginsDir = path.join(__dirname, 'plugins');
 
@@ -86,16 +84,12 @@ export async function buildApp(): Promise<FastifyInstance> {
     logger: false
   });
 
-  // 1. Register global env config plugin
   await app.register(envPlugin);
-
-  // 2. Register Form Body & Cookie parser
   await app.register(fastifyFormbody);
   await app.register(fastifyCookie, {
     secret: process.env.COOKIE_SECRET || 'ptero-secret-key-321'
   });
 
-  // 3. Register EJS view engine pointing to src/views
   const viewsDir = path.join(__dirname, 'views');
   await app.register(fastifyView, {
     engine: {
@@ -104,7 +98,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     root: viewsDir
   });
 
-  // 4. Register static file serving for /assets
   const assetsDir = path.join(__dirname, 'assets');
   if (!fs.existsSync(assetsDir)) {
     fs.mkdirSync(assetsDir, { recursive: true });
@@ -113,8 +106,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     root: assetsDir,
     prefix: '/assets/'
   });
-
-  // 5. Custom clean request logger with chalk
   app.addHook('onResponse', async (request, reply) => {
     const time = new Date().toLocaleTimeString();
     const ip = request.headers['x-forwarded-for'] || request.ip || '127.0.0.1';
@@ -128,7 +119,6 @@ export async function buildApp(): Promise<FastifyInstance> {
     );
   });
 
-  // 6. Load all plugins automatically (including auth, health, etc.)
   await loadPlugins(app);
 
   return app;

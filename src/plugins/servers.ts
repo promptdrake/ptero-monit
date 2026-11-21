@@ -1,11 +1,12 @@
 import { FastifyPluginAsync } from 'fastify';
 import {
   addServer,
+  countLogs,
   deleteAllLogs,
   deleteLog,
   deleteServer,
   getServer,
-  listLogs,
+  listLogsPage,
   listServers
 } from '../lib/monitor-store.js';
 import { getSessionAdmin } from '../lib/admin-session.js';
@@ -27,6 +28,27 @@ function stateTheme(state: string): string {
   if (normalized === 'installing' || normalized === 'transferring') return 'theme-info';
   if (normalized === 'suspended') return 'theme-danger';
   return 'theme-secondary';
+}
+
+interface DockerNodeServer {
+  uuid: string;
+  name: string;
+  state: string;
+  stateTheme: string;
+  cpuLabel: string;
+  memoryLabel: string;
+  memoryPercent: number;
+  diskLabel: string;
+}
+
+interface DockerNodeResult {
+  id: string;
+  name: string;
+  nodeId: string;
+  wingsUrl: string;
+  ok: boolean;
+  message: string;
+  servers: DockerNodeServer[];
 }
 
 interface ServerFormBody {
@@ -150,86 +172,136 @@ const serversPlugin: FastifyPluginAsync = async (fastify) => {
     return reply.redirect('/servers');
   });
 
-  fastify.get('/docker', async (request, reply) => {
+  fastify.get<{ Querystring: { q?: string; status?: string; page?: string } }>(
+    '/docker',
+    async (request, reply) => {
+      const admin = await getSessionAdmin(request);
+      if (!admin) {
+        reply.clearCookie('admin_session', { path: '/' });
+        return reply.redirect('/');
+      }
+
+      const pageSize = 10;
+      const search = String(request.query.q || '').trim();
+      const status = String(request.query.status || '').trim().toLowerCase();
+      const entries = await listServers();
+
+      const nodes: DockerNodeResult[] = await Promise.all(
+        entries.map(async (entry) => {
+          try {
+            const nodeServers = await fetchWingsServers(entry.wingsUrl, entry.nodeApiKey);
+            return {
+              id: entry.id,
+              name: entry.name,
+              nodeId: entry.nodeId,
+              wingsUrl: entry.wingsUrl,
+              ok: true,
+              message: '',
+              servers: nodeServers.map((server) => ({
+                uuid: server.uuid,
+                name: server.name,
+                state: server.state,
+                stateTheme: stateTheme(server.state),
+                cpuLabel: `${server.cpuAbsolute.toFixed(1)}%`,
+                memoryLabel: `${formatBytes(server.memoryBytes)} / ${
+                  server.memoryLimitBytes > 0 ? formatBytes(server.memoryLimitBytes) : 'Unlimited'
+                }`,
+                memoryPercent:
+                  server.memoryLimitBytes > 0
+                    ? Math.round((server.memoryBytes / server.memoryLimitBytes) * 100)
+                    : 0,
+                diskLabel: formatBytes(server.diskBytes)
+              }))
+            };
+          } catch (error) {
+            return {
+              id: entry.id,
+              name: entry.name,
+              nodeId: entry.nodeId,
+              wingsUrl: entry.wingsUrl,
+              ok: false,
+              message: wingsErrorMessage(error),
+              servers: []
+            };
+          }
+        })
+      );
+
+      const allRows = nodes.flatMap((node) =>
+        node.servers.map((nodeServer) => ({
+          ...nodeServer,
+          nodeName: node.name,
+          nodeId: node.nodeId
+        }))
+      );
+
+      const lowered = search.toLowerCase();
+      const filteredRows = allRows.filter((row) => {
+        const matchesSearch =
+          !lowered ||
+          [row.name, row.uuid, row.nodeName, row.nodeId].some((value) =>
+            value.toLowerCase().includes(lowered)
+          );
+        const matchesStatus = !status || row.state.toLowerCase() === status;
+        return matchesSearch && matchesStatus;
+      });
+
+      const statuses = Array.from(new Set(allRows.map((row) => row.state.toLowerCase()))).sort();
+      const totalPages = Math.max(1, Math.ceil(filteredRows.length / pageSize));
+      const currentPage = Math.min(Math.max(1, Number(request.query.page) || 1), totalPages);
+      const rows = filteredRows.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+      const unreachable = nodes
+        .filter((node) => !node.ok)
+        .filter(
+          (node) =>
+            !lowered ||
+            [node.name, node.nodeId, node.wingsUrl].some((value) =>
+              value.toLowerCase().includes(lowered)
+            )
+        )
+        .map((node) => ({
+          name: node.name,
+          nodeId: node.nodeId,
+          wingsUrl: node.wingsUrl,
+          message: node.message
+        }));
+
+      return reply.view('docker.ejs', {
+        admin,
+        totals: {
+          nodes: nodes.length,
+          servers: allRows.length,
+          running: allRows.filter((row) => row.state.toLowerCase() === 'running').length
+        },
+        rows,
+        statuses,
+        filters: { q: search, status },
+        pagination: { currentPage, totalPages },
+        totalFiltered: filteredRows.length,
+        unreachable
+      });
+    }
+  );
+
+  fastify.get<{ Querystring: { page?: string } }>('/logs', async (request, reply) => {
     const admin = await getSessionAdmin(request);
     if (!admin) {
       reply.clearCookie('admin_session', { path: '/' });
       return reply.redirect('/');
     }
 
-    const entries = await listServers();
-
-    const nodes = await Promise.all(
-      entries.map(async (entry) => {
-        try {
-          const nodeServers = await fetchWingsServers(entry.wingsUrl, entry.nodeApiKey);
-          return {
-            id: entry.id,
-            name: entry.name,
-            nodeId: entry.nodeId,
-            wingsUrl: entry.wingsUrl,
-            ok: true,
-            message: '',
-            servers: nodeServers.map((server) => ({
-              uuid: server.uuid,
-              name: server.name,
-              state: server.state,
-              stateTheme: stateTheme(server.state),
-              cpuLabel: `${server.cpuAbsolute.toFixed(1)}%`,
-              memoryLabel: `${formatBytes(server.memoryBytes)} / ${
-                server.memoryLimitBytes > 0 ? formatBytes(server.memoryLimitBytes) : 'Unlimited'
-              }`,
-              memoryPercent:
-                server.memoryLimitBytes > 0
-                  ? Math.round((server.memoryBytes / server.memoryLimitBytes) * 100)
-                  : 0,
-              diskLabel: formatBytes(server.diskBytes)
-            }))
-          };
-        } catch (error) {
-          return {
-            id: entry.id,
-            name: entry.name,
-            nodeId: entry.nodeId,
-            wingsUrl: entry.wingsUrl,
-            ok: false,
-            message: wingsErrorMessage(error),
-            servers: []
-          };
-        }
-      })
-    );
-
-    let totalServers = 0;
-    let runningServers = 0;
-    for (const node of nodes) {
-      totalServers += node.servers.length;
-      for (const nodeServer of node.servers) {
-        if (nodeServer.state.toLowerCase() === 'running') runningServers++;
-      }
-    }
-
-    return reply.view('docker.ejs', {
-      admin,
-      nodes,
-      totals: {
-        nodes: nodes.length,
-        servers: totalServers,
-        running: runningServers
-      }
-    });
-  });
-
-  fastify.get('/logs', async (request, reply) => {
-    const admin = await getSessionAdmin(request);
-    if (!admin) {
-      reply.clearCookie('admin_session', { path: '/' });
-      return reply.redirect('/');
-    }
+    const pageSize = 10;
+    const total = await countLogs();
+    const totalPages = Math.max(1, Math.ceil(total / pageSize));
+    const currentPage = Math.min(Math.max(1, Number(request.query.page) || 1), totalPages);
+    const logs = await listLogsPage(pageSize, (currentPage - 1) * pageSize);
 
     return reply.view('logs.ejs', {
       admin,
-      logs: await listLogs()
+      logs,
+      pagination: { currentPage, totalPages },
+      totalLogs: total
     });
   });
 
@@ -244,16 +316,20 @@ const serversPlugin: FastifyPluginAsync = async (fastify) => {
     return reply.redirect('/logs');
   });
 
-  fastify.post<{ Params: { id: string } }>('/logs/:id/delete', async (request, reply) => {
-    const admin = await getSessionAdmin(request);
-    if (!admin) {
-      reply.clearCookie('admin_session', { path: '/' });
-      return reply.redirect('/');
-    }
+  fastify.post<{ Params: { id: string }; Querystring: { page?: string } }>(
+    '/logs/:id/delete',
+    async (request, reply) => {
+      const admin = await getSessionAdmin(request);
+      if (!admin) {
+        reply.clearCookie('admin_session', { path: '/' });
+        return reply.redirect('/');
+      }
 
-    await deleteLog(request.params.id);
-    return reply.redirect('/logs');
-  });
+      await deleteLog(request.params.id);
+      const page = Math.max(1, Number(request.query.page) || 1);
+      return reply.redirect(`/logs?page=${page}`);
+    }
+  );
 };
 
 export default serversPlugin;

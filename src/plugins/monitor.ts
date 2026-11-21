@@ -1,7 +1,13 @@
 import { FastifyPluginAsync } from 'fastify';
-import axios from 'axios';
 import chalk from 'chalk';
 import { getMonitorSettings, listServers, addMonitorLog } from '../lib/monitor-store.js';
+import { setWebhookDeliveryStatus } from '../lib/webhook-status.js';
+import {
+  buildDiscordPayload,
+  deliverWebhook,
+  renderCustomBody,
+  type WebhookEventVars
+} from '../lib/webhook.js';
 import {
   checkWingsConnection,
   fetchWingsServers,
@@ -40,27 +46,46 @@ const monitorPlugin: FastifyPluginAsync = async (fastify) => {
       detail: string;
     }
   ): Promise<void> {
-    if (!settings.webhookEnabled || !settings.webhookUrl) return;
+    const vars: WebhookEventVars = {
+      event: payload.event,
+      serverId: payload.serverId,
+      serverName: payload.serverName,
+      nodeId: payload.nodeId,
+      detail: payload.detail,
+      timestamp: new Date().toISOString()
+    };
 
-    const text = `[${payload.event}] ${payload.serverName} (Node ${payload.nodeId}) - ${payload.detail}`;
-
-    try {
-      await axios.post(
-        settings.webhookUrl,
-        {
-          content: text,
-          username: 'Pterodactyl Monitor',
-          event: payload.event,
-          server_id: payload.serverId,
-          server_name: payload.serverName,
-          node_id: payload.nodeId,
-          detail: payload.detail,
-          timestamp: new Date().toISOString()
-        },
-        { timeout: 10000 }
+    if (settings.discordEnabled && settings.discordWebhookUrl) {
+      const result = await deliverWebhook(
+        settings.discordWebhookUrl,
+        buildDiscordPayload(vars),
+        'discord'
       );
-    } catch (error) {
-      console.warn(chalk.yellow(`[Monitor] `) + `Webhook delivery failed: ${wingsErrorMessage(error)}`);
+
+      setWebhookDeliveryStatus('discord', {
+        ok: result.ok,
+        event: payload.event,
+        message: result.message
+      });
+
+      if (!result.ok) {
+        console.warn(chalk.yellow(`[Monitor] `) + `Discord webhook delivery failed: ${result.message}`);
+      }
+    }
+
+    if (settings.customEnabled && settings.customWebhookUrl) {
+      const body = renderCustomBody(settings.customWebhookBody, vars);
+      const result = await deliverWebhook(settings.customWebhookUrl, body, 'custom');
+
+      setWebhookDeliveryStatus('custom', {
+        ok: result.ok,
+        event: payload.event,
+        message: result.message
+      });
+
+      if (!result.ok) {
+        console.warn(chalk.yellow(`[Monitor] `) + `Custom webhook delivery failed: ${result.message}`);
+      }
     }
   }
 

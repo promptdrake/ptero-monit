@@ -20,7 +20,7 @@
 
     <div class="row g-3 mt-3">
       <div class="col-12 xl:col-8">
-        <form action="/settings" method="POST" class="d-grid gap-3">
+        <form action="/settings" method="POST" id="settings-form" class="d-grid gap-3">
           <div class="card shadow-sm">
             <div class="card-body">
               <div>
@@ -78,35 +78,249 @@
           <div class="card shadow-sm">
             <div class="card-body">
               <div>
-                <h2 class="h5 mb-1">Webhook</h2>
-                <p class="text-sm fg-3 mb-0">Send event notifications to an external webhook.</p>
+                <h2 class="h5 mb-1">Discord Webhook</h2>
+                <p class="text-sm fg-3 mb-0">Sends Discord-formatted messages with a content field.</p>
               </div>
 
               <div class="form-field">
-                <label class="form-label" for="webhook_enabled">Enable Webhook</label>
+                <label class="form-label" for="discord_enabled">Enable Discord Webhook</label>
                 <div class="d-flex align-items-center justify-content-between gap-3 form-field-card">
-                  <span class="text-sm fg-2">Send a notification for every logged event.</span>
+                  <span class="text-sm fg-2">Deliver every logged event to the Discord webhook.</span>
                   <div class="switch theme-primary">
-                    <input type="checkbox" role="switch" switch id="webhook_enabled" name="webhook_enabled" <%= webhookEnabled ? 'checked' : '' %>>
+                    <input type="checkbox" role="switch" switch id="discord_enabled" name="discord_enabled" <%= discordEnabled ? 'checked' : '' %>>
                   </div>
                 </div>
               </div>
 
               <div class="form-field">
-                <label class="form-label" for="webhook_url">Send Webhook To</label>
-                <input type="url" class="form-control" id="webhook_url" name="webhook_url" placeholder="https://discord.com/api/webhooks/..." value="<%= webhookUrl %>">
-                <small class="form-text">Destination URL for webhook events.</small>
+                <label class="form-label" for="discord_webhook_url">Send To Discord Webhook Link</label>
+                <input type="url" class="form-control" id="discord_webhook_url" name="discord_webhook_url" placeholder="https://discord.com/api/webhooks/..." value="<%= discordWebhookUrl %>">
+                <small class="form-text">Required when the Discord webhook is enabled.</small>
               </div>
+
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <button type="button" class="btn btn-outline theme-secondary btn-sm js-webhook-test" data-target="discord">Test Discord Notification</button>
+              </div>
+              <div id="test-result-discord"></div>
+            </div>
+          </div>
+
+          <div class="card shadow-sm">
+            <div class="card-body">
+              <div>
+                <h2 class="h5 mb-1">Custom Webhook</h2>
+                <p class="text-sm fg-3 mb-0">Sends the JSON body you define, without Discord formatting.</p>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="custom_enabled">Enable Custom Webhook</label>
+                <div class="d-flex align-items-center justify-content-between gap-3 form-field-card">
+                  <span class="text-sm fg-2">Deliver every logged event to the custom endpoint.</span>
+                  <div class="switch theme-primary">
+                    <input type="checkbox" role="switch" switch id="custom_enabled" name="custom_enabled" <%= customEnabled ? 'checked' : '' %>>
+                  </div>
+                </div>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="custom_webhook_url">Custom Webhook URL</label>
+                <input type="url" class="form-control" id="custom_webhook_url" name="custom_webhook_url" placeholder="https://example.com/webhook" value="<%= customWebhookUrl %>">
+                <small class="form-text">Required when the custom webhook is enabled.</small>
+              </div>
+
+              <div class="form-field">
+                <label class="form-label" for="custom_webhook_body">Custom JSON Body</label>
+                <textarea class="form-control text-sm" id="custom_webhook_body" name="custom_webhook_body" rows="10" spellcheck="false" style="font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;"><%= customWebhookBody %></textarea>
+                <small class="form-text">
+                  Placeholders are replaced with JSON-escaped values:
+                  <code>{{event}}</code>, <code>{{server_id}}</code>, <code>{{server_name}}</code>, <code>{{node_id}}</code>, <code>{{detail}}</code>, <code>{{timestamp}}</code>.
+                </small>
+              </div>
+
+              <div class="d-flex flex-wrap align-items-center gap-2">
+                <button type="button" class="btn btn-outline theme-secondary btn-sm js-webhook-test" data-target="custom">Test Custom Notification</button>
+              </div>
+              <div id="test-result-custom"></div>
             </div>
           </div>
 
           <div class="d-flex flex-wrap gap-2">
             <button type="submit" class="btn btn-solid theme-primary btn-sm">Save Settings</button>
-            <button type="button" class="btn btn-outline theme-secondary btn-sm" id="test-webhook">Test Webhook</button>
           </div>
         </form>
+
+        <div class="card shadow-sm mt-3">
+          <div class="card-body">
+            <div>
+              <h2 class="h5 mb-1">Webhook Delivery</h2>
+              <p class="text-sm fg-3 mb-0">Status of the most recent real event sent to each webhook.</p>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0 text-sm">
+                <thead>
+                  <tr class="fg-2">
+                    <th scope="col" class="fw-semibold">Webhook</th>
+                    <th scope="col" class="fw-semibold">Enabled</th>
+                    <th scope="col" class="fw-semibold">Last Status</th>
+                    <th scope="col" class="fw-semibold">Event</th>
+                    <th scope="col" class="fw-semibold">Result</th>
+                    <th scope="col" class="fw-semibold">Time</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>Discord</td>
+                    <td>
+                      <span class="badge <%= discordEnabled ? 'theme-success' : 'theme-secondary' %>"><%= discordEnabled ? 'On' : 'Off' %></span>
+                    </td>
+                    <td>
+                      <% if (!discordStatus) { %>
+                        <span class="badge theme-secondary">Not sent yet</span>
+                      <% } else { %>
+                        <span class="badge <%= discordStatus.ok ? 'theme-success' : 'theme-danger' %>"><%= discordStatus.ok ? 'Sent' : 'Failed' %></span>
+                      <% } %>
+                    </td>
+                    <td><%= discordStatus ? discordStatus.event : '-' %></td>
+                    <td><%= discordStatus ? discordStatus.message : 'No delivery attempt yet.' %></td>
+                    <td class="fg-3"><%= discordStatus ? discordStatus.at : '-' %></td>
+                  </tr>
+                  <tr>
+                    <td>Custom</td>
+                    <td>
+                      <span class="badge <%= customEnabled ? 'theme-success' : 'theme-secondary' %>"><%= customEnabled ? 'On' : 'Off' %></span>
+                    </td>
+                    <td>
+                      <% if (!customStatus) { %>
+                        <span class="badge theme-secondary">Not sent yet</span>
+                      <% } else { %>
+                        <span class="badge <%= customStatus.ok ? 'theme-success' : 'theme-danger' %>"><%= customStatus.ok ? 'Sent' : 'Failed' %></span>
+                      <% } %>
+                    </td>
+                    <td><%= customStatus ? customStatus.event : '-' %></td>
+                    <td><%= customStatus ? customStatus.message : 'No delivery attempt yet.' %></td>
+                    <td class="fg-3"><%= customStatus ? customStatus.at : '-' %></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <div class="card shadow-sm mt-3">
+          <div class="card-body">
+            <div>
+              <h2 class="h5 mb-1">Event Types</h2>
+              <p class="text-sm fg-3 mb-0">Both webhooks receive the same event, in their own format.</p>
+            </div>
+
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0 text-sm">
+                <thead>
+                  <tr class="fg-2">
+                    <th scope="col" class="fw-semibold">Event</th>
+                    <th scope="col" class="fw-semibold">Sent when</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td><span class="badge theme-danger">cpu.overusage</span></td>
+                    <td>CPU usage stays above Allowance Usage for longer than CPU Burst Time Allowance.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge theme-warning">memory.overusage</span></td>
+                    <td>Server memory usage rises above Allowance Usage.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge theme-secondary">node.connection.failed</span></td>
+                    <td>A Wings node cannot be reached or its server list cannot be fetched.</td>
+                  </tr>
+                  <tr>
+                    <td><span class="badge theme-success">node.connection.restored</span></td>
+                    <td>A node that previously failed becomes reachable again.</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div>
+              <h3 class="h6 mb-1">Discord Payload</h3>
+              <p class="text-sm fg-3 mb-0">Sent to the Discord webhook link as an embed.</p>
+            </div>
+            <pre class="bg-1 border rounded p-3 text-sm mb-0" style="white-space: pre-wrap;">{
+  "username": "Pterodactyl Monitor",
+  "embeds": [
+    {
+      "title": "cpu.overusage",
+      "description": "CPU usage 91.2% exceeded the 80% allowance for more than 10 minute(s).",
+      "color": 15680580,
+      "fields": [
+        { "name": "Server", "value": "Survival SMP", "inline": true },
+        { "name": "Node ID", "value": "7", "inline": true },
+        { "name": "Server ID", "value": "11111111-2222-3333-4444-555555555555", "inline": false }
+      ],
+      "timestamp": "2026-11-21T15:31:06.000Z"
+    }
+  ]
+}</pre>
+
+            <div>
+              <h3 class="h6 mb-1">Custom Payload</h3>
+              <p class="text-sm fg-3 mb-0">Default custom body after placeholders are replaced.</p>
+            </div>
+            <pre class="bg-1 border rounded p-3 text-sm mb-0" style="white-space: pre-wrap;">{
+  "event": "cpu.overusage",
+  "server_id": "11111111-2222-3333-4444-555555555555",
+  "server_name": "Survival SMP",
+  "node_id": "7",
+  "detail": "CPU usage 91.2% exceeded the 80% allowance for more than 10 minute(s).",
+  "timestamp": "2026-11-21T15:28:03.000Z"
+}</pre>
+          </div>
+        </div>
       </div>
     </div>
   </main>
 </div>
+<script>
+  (function () {
+    var form = document.getElementById('settings-form');
+    if (!form) return;
+
+    var buttons = document.querySelectorAll('.js-webhook-test');
+    buttons.forEach(function (button) {
+      button.addEventListener('click', async function () {
+        var target = button.getAttribute('data-target');
+        var resultBox = document.getElementById('test-result-' + target);
+        var data = new URLSearchParams(new FormData(form));
+        data.set('target', target);
+
+        button.disabled = true;
+        resultBox.innerHTML = '<div class="alert theme-info text-sm" role="alert">Sending test notification...</div>';
+
+        try {
+          var response = await fetch('/settings/test-webhook', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/x-www-form-urlencoded',
+              'Accept': 'application/json'
+            },
+            body: data.toString()
+          });
+          var result = await response.json();
+          var alert = document.createElement('div');
+          alert.className = 'alert text-sm ' + (result.ok ? 'theme-success' : 'theme-danger');
+          alert.setAttribute('role', 'alert');
+          alert.textContent = result.message || (result.ok ? 'Test notification sent.' : 'Test notification failed.');
+          resultBox.innerHTML = '';
+          resultBox.appendChild(alert);
+        } catch (error) {
+          resultBox.innerHTML = '<div class="alert theme-danger text-sm" role="alert">Unable to send the test notification.</div>';
+        } finally {
+          button.disabled = false;
+        }
+      });
+    });
+  })();
+</script>
 <%- include('partials/foot') %>

@@ -16,7 +16,7 @@
       </div>
     </div>
 
-    <% if (nodes.length === 0) { %>
+    <% if (totals.nodes === 0) { %>
       <div class="card shadow-sm mt-3">
         <div class="card-body">
           <div>
@@ -29,63 +29,102 @@
         </div>
       </div>
     <% } else { %>
-      <div class="d-grid gap-3 mt-3">
-        <% nodes.forEach(function (node) { %>
-          <div class="card shadow-sm">
-            <div class="card-body">
-              <div class="d-flex flex-wrap align-items-start justify-content-between gap-2">
-                <div>
-                  <div class="d-flex flex-wrap align-items-center gap-2">
-                    <h2 class="h5 mb-0"><%= node.name %></h2>
-                    <span class="badge theme-secondary">Node <%= node.nodeId %></span>
-                  </div>
-                  <p class="text-sm fg-3 mb-0 mt-1"><%= node.wingsUrl %></p>
-                </div>
-                <% if (node.ok) { %>
-                  <span class="badge theme-success rounded-pill"><%= node.servers.length %> server(s)</span>
-                <% } else { %>
-                  <span class="badge theme-danger rounded-pill">Unreachable</span>
-                <% } %>
-              </div>
+      <%
+        function makePageUrl(targetPage) {
+          var params = new URLSearchParams();
+          if (filters.q) params.set('q', filters.q);
+          if (filters.status) params.set('status', filters.status);
+          params.set('page', String(targetPage));
+          return '/docker?' + params.toString();
+        }
+      %>
 
-              <% if (!node.ok) { %>
-                <div class="alert theme-danger text-sm" role="alert">Unable to fetch servers: <%= node.message %></div>
-              <% } else if (node.servers.length === 0) { %>
-                <p class="text-sm fg-3 mb-0">No servers are registered on this node.</p>
-              <% } else { %>
-                <div class="table-responsive">
-                  <table class="table table-hover align-middle mb-0 text-sm">
-                    <thead>
-                      <tr class="fg-2">
-                        <th scope="col" class="fw-semibold">Server Name</th>
-                        <th scope="col" class="fw-semibold">Server ID</th>
-                        <th scope="col" class="fw-semibold">Status</th>
-                        <th scope="col" class="fw-semibold">CPU</th>
-                        <th scope="col" class="fw-semibold">Memory</th>
-                        <th scope="col" class="fw-semibold">Disk</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <% node.servers.forEach(function (server) { %>
-                        <tr>
-                          <td><%= server.name %></td>
-                          <td><code><%= server.uuid %></code></td>
-                          <td><span class="badge <%= server.stateTheme %>"><%= server.state %></span></td>
-                          <td><%= server.cpuLabel %></td>
-                          <td>
-                            <div><%= server.memoryLabel %></div>
-                            <div class="text-sm fg-3"><%= server.memoryPercent %>%</div>
-                          </td>
-                          <td><%= server.diskLabel %></td>
-                        </tr>
-                      <% }); %>
-                    </tbody>
-                  </table>
-                </div>
-              <% } %>
+      <div class="card shadow-sm mt-3">
+        <div class="card-body">
+          <form action="/docker" method="GET" class="d-flex flex-wrap align-items-end gap-2">
+            <div class="form-field flex-grow-1">
+              <label class="form-label" for="q">Filter</label>
+              <input type="text" class="form-control" id="q" name="q" placeholder="Search server name, ID, or node" value="<%= filters.q %>">
+            </div>
+
+            <div class="form-field">
+              <label class="form-label" for="status">Status</label>
+              <select class="form-control" id="status" name="status">
+                <option value="">All statuses</option>
+                <% statuses.forEach(function (state) { %>
+                  <option value="<%= state %>" <%= filters.status === state ? 'selected' : '' %>><%= state %></option>
+                <% }); %>
+              </select>
+            </div>
+
+            <div class="d-flex gap-2">
+              <button type="submit" class="btn btn-solid theme-primary btn-sm">Apply</button>
+              <a href="/docker" class="btn btn-outline theme-secondary btn-sm">Reset</a>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <% unreachable.forEach(function (node) { %>
+        <div class="alert theme-danger text-sm mt-3" role="alert">
+          <strong><%= node.name %></strong> (Node <%= node.nodeId %>): Unable to fetch servers: <%= node.message %>
+        </div>
+      <% }); %>
+
+      <div class="card shadow-sm mt-3">
+        <div class="card-body">
+          <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+            <div>
+              <h2 class="h5 mb-1">Servers</h2>
+              <p class="text-sm fg-3 mb-0"><%= totalFiltered %> matching server(s), 10 per page.</p>
             </div>
           </div>
-        <% }); %>
+
+          <% if (rows.length === 0) { %>
+            <p class="text-sm fg-3 mb-0">No servers match the current filter.</p>
+          <% } else { %>
+            <div class="table-responsive">
+              <table class="table table-hover align-middle mb-0 text-sm">
+                <thead>
+                  <tr class="fg-2">
+                    <th scope="col" class="fw-semibold">Server Name</th>
+                    <th scope="col" class="fw-semibold">Server ID</th>
+                    <th scope="col" class="fw-semibold">Node</th>
+                    <th scope="col" class="fw-semibold">Status</th>
+                    <th scope="col" class="fw-semibold">CPU</th>
+                    <th scope="col" class="fw-semibold">Memory</th>
+                    <th scope="col" class="fw-semibold">Disk</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <% rows.forEach(function (row) { %>
+                    <tr>
+                      <td><%= row.name %></td>
+                      <td><code><%= row.uuid %></code></td>
+                      <td>
+                        <div><%= row.nodeName %></div>
+                        <div class="text-sm fg-3">Node <%= row.nodeId %></div>
+                      </td>
+                      <td><span class="badge <%= row.stateTheme %>"><%= row.state %></span></td>
+                      <td><%= row.cpuLabel %></td>
+                      <td>
+                        <div><%= row.memoryLabel %></div>
+                        <div class="text-sm fg-3"><%= row.memoryPercent %>%</div>
+                      </td>
+                      <td><%= row.diskLabel %></td>
+                    </tr>
+                  <% }); %>
+                </tbody>
+              </table>
+            </div>
+
+            <%- include('partials/pagination', {
+              currentPage: pagination.currentPage,
+              totalPages: pagination.totalPages,
+              makeUrl: makePageUrl
+            }) %>
+          <% } %>
+        </div>
       </div>
     <% } %>
   </main>

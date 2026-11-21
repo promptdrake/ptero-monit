@@ -1,12 +1,16 @@
 import { ObjectId } from 'mongodb';
 import { db } from './sql.js';
+import { DEFAULT_CUSTOM_BODY } from './webhook.js';
 
 export interface MonitorSettings {
   panelUrl: string;
   ptlcApiKey: string;
   ptlaApiKey: string;
-  webhookEnabled: boolean;
-  webhookUrl: string;
+  discordEnabled: boolean;
+  discordWebhookUrl: string;
+  customEnabled: boolean;
+  customWebhookUrl: string;
+  customWebhookBody: string;
   autoCheckInterval: number;
   allowanceUsagePercent: number;
   cpuBurstMinutes: number;
@@ -16,8 +20,11 @@ export const defaultMonitorSettings: MonitorSettings = {
   panelUrl: '',
   ptlcApiKey: '',
   ptlaApiKey: '',
-  webhookEnabled: false,
-  webhookUrl: '',
+  discordEnabled: false,
+  discordWebhookUrl: '',
+  customEnabled: false,
+  customWebhookUrl: '',
+  customWebhookBody: DEFAULT_CUSTOM_BODY,
   autoCheckInterval: 60,
   allowanceUsagePercent: 80,
   cpuBurstMinutes: 10
@@ -94,11 +101,34 @@ async function init(): Promise<void> {
         ptla_api_key VARCHAR(500) DEFAULT '',
         webhook_enabled INTEGER NOT NULL DEFAULT 0,
         webhook_url VARCHAR(1000) DEFAULT '',
+        webhook_url_2 VARCHAR(1000) DEFAULT '',
+        custom_webhook_enabled INTEGER NOT NULL DEFAULT 0,
+        custom_webhook_body TEXT DEFAULT '',
         auto_check_interval INTEGER NOT NULL DEFAULT 60,
         allowance_usage_percent INTEGER NOT NULL DEFAULT 80,
         cpu_burst_minutes INTEGER NOT NULL DEFAULT 10
       )
     `);
+
+    try {
+      await db.query(`ALTER TABLE monitor_settings ADD COLUMN webhook_url_2 VARCHAR(1000) DEFAULT ''`);
+    } catch {
+      // Column already exists on databases created with the previous schema.
+    }
+
+    try {
+      await db.query(
+        `ALTER TABLE monitor_settings ADD COLUMN custom_webhook_enabled INTEGER NOT NULL DEFAULT 0`
+      );
+    } catch {
+      // Column already exists on databases created with the previous schema.
+    }
+
+    try {
+      await db.query(`ALTER TABLE monitor_settings ADD COLUMN custom_webhook_body TEXT DEFAULT ''`);
+    } catch {
+      // Column already exists on databases created with the previous schema.
+    }
 
     await db.query(`
       CREATE TABLE IF NOT EXISTS monitor_servers (
@@ -135,8 +165,11 @@ function mapSettingsRow(row: any): MonitorSettings {
     panelUrl: String(row.panel_url ?? ''),
     ptlcApiKey: String(row.ptlc_api_key ?? ''),
     ptlaApiKey: String(row.ptla_api_key ?? ''),
-    webhookEnabled: Number(row.webhook_enabled) === 1,
-    webhookUrl: String(row.webhook_url ?? ''),
+    discordEnabled: Number(row.webhook_enabled) === 1,
+    discordWebhookUrl: String(row.webhook_url ?? ''),
+    customEnabled: Number(row.custom_webhook_enabled) === 1,
+    customWebhookUrl: String(row.webhook_url_2 ?? ''),
+    customWebhookBody: String(row.custom_webhook_body || DEFAULT_CUSTOM_BODY),
     autoCheckInterval: Number(row.auto_check_interval) || defaultMonitorSettings.autoCheckInterval,
     allowanceUsagePercent:
       Number(row.allowance_usage_percent) || defaultMonitorSettings.allowanceUsagePercent,
@@ -202,8 +235,11 @@ export async function getMonitorSettings(): Promise<MonitorSettings> {
       panelUrl: String(doc.panelUrl ?? ''),
       ptlcApiKey: String(doc.ptlcApiKey ?? ''),
       ptlaApiKey: String(doc.ptlaApiKey ?? ''),
-      webhookEnabled: Boolean(doc.webhookEnabled),
-      webhookUrl: String(doc.webhookUrl ?? ''),
+      discordEnabled: Boolean(doc.discordEnabled),
+      discordWebhookUrl: String(doc.discordWebhookUrl ?? ''),
+      customEnabled: Boolean(doc.customEnabled),
+      customWebhookUrl: String(doc.customWebhookUrl ?? ''),
+      customWebhookBody: String(doc.customWebhookBody || DEFAULT_CUSTOM_BODY),
       autoCheckInterval: Number(doc.autoCheckInterval) || defaultMonitorSettings.autoCheckInterval,
       allowanceUsagePercent:
         Number(doc.allowanceUsagePercent) || defaultMonitorSettings.allowanceUsagePercent,
@@ -223,8 +259,11 @@ export async function saveMonitorSettings(next: MonitorSettings): Promise<Monito
     panelUrl: String(next.panelUrl || '').trim(),
     ptlcApiKey: String(next.ptlcApiKey || '').trim(),
     ptlaApiKey: String(next.ptlaApiKey || '').trim(),
-    webhookEnabled: Boolean(next.webhookEnabled),
-    webhookUrl: String(next.webhookUrl || '').trim(),
+    discordEnabled: Boolean(next.discordEnabled),
+    discordWebhookUrl: String(next.discordWebhookUrl || '').trim(),
+    customEnabled: Boolean(next.customEnabled),
+    customWebhookUrl: String(next.customWebhookUrl || '').trim(),
+    customWebhookBody: String(next.customWebhookBody || DEFAULT_CUSTOM_BODY).trim(),
     autoCheckInterval: Math.max(1, Math.floor(Number(next.autoCheckInterval) || 1)),
     allowanceUsagePercent: Math.min(100, Math.max(1, Math.floor(Number(next.allowanceUsagePercent) || 1))),
     cpuBurstMinutes: Math.max(1, Math.floor(Number(next.cpuBurstMinutes) || 1))
@@ -242,15 +281,19 @@ export async function saveMonitorSettings(next: MonitorSettings): Promise<Monito
   await db.query('DELETE FROM monitor_settings WHERE id = 1');
   await db.query(
     `INSERT INTO monitor_settings
-      (id, panel_url, ptlc_api_key, ptla_api_key, webhook_enabled, webhook_url,
+      (id, panel_url, ptlc_api_key, ptla_api_key, webhook_enabled, webhook_url, webhook_url_2,
+       custom_webhook_enabled, custom_webhook_body,
        auto_check_interval, allowance_usage_percent, cpu_burst_minutes)
-     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?)`,
+     VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [
       normalized.panelUrl,
       normalized.ptlcApiKey,
       normalized.ptlaApiKey,
-      normalized.webhookEnabled ? 1 : 0,
-      normalized.webhookUrl,
+      normalized.discordEnabled ? 1 : 0,
+      normalized.discordWebhookUrl,
+      normalized.customWebhookUrl,
+      normalized.customEnabled ? 1 : 0,
+      normalized.customWebhookBody,
       normalized.autoCheckInterval,
       normalized.allowanceUsagePercent,
       normalized.cpuBurstMinutes
@@ -398,6 +441,40 @@ export async function listLogs(limit = 300): Promise<MonitorLog[]> {
   }
 
   const result = await db.query(`SELECT * FROM monitor_logs ORDER BY id DESC LIMIT ${Number(limit) || 300}`);
+  return result.rows.map(mapLogRow);
+}
+
+export async function countLogs(): Promise<number> {
+  await init();
+
+  if (db.type === 'mongodb') {
+    return db.collection('monitor_logs').countDocuments({});
+  }
+
+  const result = await db.query('SELECT COUNT(*) AS total FROM monitor_logs');
+  return Number(result.rows[0]?.total) || 0;
+}
+
+export async function listLogsPage(limit: number, offset: number): Promise<MonitorLog[]> {
+  await init();
+
+  const safeLimit = Math.max(1, Math.floor(Number(limit) || 10));
+  const safeOffset = Math.max(0, Math.floor(Number(offset) || 0));
+
+  if (db.type === 'mongodb') {
+    const docs = await db
+      .collection('monitor_logs')
+      .find({})
+      .sort({ _id: -1 })
+      .skip(safeOffset)
+      .limit(safeLimit)
+      .toArray();
+    return docs.map(mapLogDoc);
+  }
+
+  const result = await db.query(
+    `SELECT * FROM monitor_logs ORDER BY id DESC LIMIT ${safeLimit} OFFSET ${safeOffset}`
+  );
   return result.rows.map(mapLogRow);
 }
 

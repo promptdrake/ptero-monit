@@ -1,0 +1,26 @@
+<% if (totalPages > 1) { %>
+  <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
+    <span class="text-sm fg-3">Page <%= currentPage %> of <%= totalPages %></span>
+    <nav aria-label="Pagination">
+      <ul class="pagination mb-0">
+        <li class="page-item <%= currentPage <= 1 ? 'disabled' : '' %>">
+          <a class="page-link" href="<%= currentPage <= 1 ? '#' : makeUrl(currentPage - 1) %>">Previous</a>
+        </li>
+        <%
+          var windowSize = 10;
+          var start = Math.max(1, currentPage - Math.floor(windowSize / 2));
+          var end = Math.min(totalPages, start + windowSize - 1);
+          start = Math.max(1, end - windowSize + 1);
+          for (var pageNumber = start; pageNumber <= end; pageNumber++) {
+        %>
+          <li class="page-item <%= pageNumber === currentPage ? 'active' : '' %>">
+            <a class="page-link" href="<%= makeUrl(pageNumber) %>"><%= pageNumber %></a>
+          </li>
+        <% } %>
+        <li class="page-item <%= currentPage >= totalPages ? 'disabled' : '' %>">
+          <a class="page-link" href="<%= currentPage >= totalPages ? '#' : makeUrl(currentPage + 1) %>">Next</a>
+        </li>
+      </ul>
+    </nav>
+  </div>
+<% } %>

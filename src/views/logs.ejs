@@ -8,8 +8,14 @@
         <h1 class="h3 mb-1">Log</h1>
         <p class="text-sm fg-3 mb-0">Events recorded by the automatic server checker.</p>
       </div>
-      <span class="badge theme-secondary rounded-pill"><%= logs.length %> event(s)</span>
+      <span class="badge theme-secondary rounded-pill"><%= totalLogs %> event(s)</span>
     </div>
+
+    <%
+      function makePageUrl(targetPage) {
+        return '/logs?page=' + targetPage;
+      }
+    %>
 
     <div class="row g-3 mt-3">
       <div class="col-12">
@@ -18,7 +24,7 @@
             <div class="d-flex flex-wrap align-items-center justify-content-between gap-2">
               <div>
                 <h2 class="h5 mb-1">Event Logs</h2>
-                <p class="text-sm fg-3 mb-0">Newest events first.</p>
+                <p class="text-sm fg-3 mb-0">Newest events first, 10 per page.</p>
               </div>
               <form action="/logs/delete-all" method="POST" onsubmit="return confirm('Delete all logs?');">
                 <button type="submit" class="btn btn-outline theme-danger btn-sm">Delete All</button>
@@ -57,7 +63,7 @@
                         <td><span class="badge <%= eventTheme %>"><%= log.event %></span></td>
                         <td><%= log.detail %></td>
                         <td class="text-end">
-                          <form action="/logs/<%= log.id %>/delete" method="POST" onsubmit="return confirm('Delete this log?');">
+                          <form action="/logs/<%= log.id %>/delete?page=<%= pagination.currentPage %>" method="POST" onsubmit="return confirm('Delete this log?');">
                             <button type="submit" class="btn btn-outline theme-danger btn-sm">Delete</button>
                           </form>
                         </td>
@@ -67,6 +73,12 @@
                 </table>
               </div>
             <% } %>
+
+            <%- include('partials/pagination', {
+              currentPage: pagination.currentPage,
+              totalPages: pagination.totalPages,
+              makeUrl: makePageUrl
+            }) %>
           </div>
         </div>
       </div>
